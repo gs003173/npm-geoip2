@@ -1,16 +1,18 @@
-# 第一阶段：使用官方 Alpine 镜像作为编译车间
-FROM alpine AS builder
-
-# 1. 安装官方编译依赖库 (去掉了不存在的 pcre2-utils)
-RUN apk add --no-cache git bash curl build-base pcre2-dev zlib-dev openssl-dev libmaxminddb-dev
-
+# 设置工作目录
 WORKDIR /build
 
 # 2. 拉取 Nginx Proxy Manager 官方最新源码
+# --depth 1 表示只拉取最新一次提交，加快速度
 RUN git clone --depth 1 https://github.com/NginxProxyManager/nginx-proxy-manager.git npm_source
 
-# 3. 【核心修复】使用 sed 命令提取 Nginx 版本号 (完美兼容 Alpine 系统)
-RUN NGINX_VERSION=$(sed -n 's/.*ARG NGINX_VERSION=\([0-9.]*\).*/\1/p' npm_source/docker/nginx/Dockerfile) && \
+# 3. 【终极修复】检查并提取 Nginx 版本号
+# 先检查文件是否存在，如果不存在就报错，防止静默失败
+RUN if [ ! -f npm_source/backend/docker/nginx/Dockerfile ]; then \
+      echo "错误：找不到 Dockerfile！请检查 NPM 仓库结构是否已变更。"; \
+      exit 1; \
+    fi && \
+    # 使用 sed 提取版本号 (注意路径已修正)
+    NGINX_VERSION=$(sed -n 's/.*ARG NGINX_VERSION=\([0-9.]*\).*/\1/p' npm_source/backend/docker/nginx/Dockerfile) && \
     echo "=== 正在编译 Nginx 版本: $NGINX_VERSION ===" && \
     # 4. 下载完全匹配的官方 Nginx 源码
     wget https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
