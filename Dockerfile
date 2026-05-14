@@ -28,9 +28,7 @@ RUN cd libmaxminddb && ./configure && make && make install && ldconfig && cd ..
 # 现场编译出完美兼容的 GeoIP2 动态模块
 
 RUN cd nginx-${NGINX_VERSION} && \
-
     ./configure --with-compat --add-dynamic-module=../ngx_http_geoip2_module && \
-
     make modules
 
 # 第二阶段：打包最终成品
