@@ -15,17 +15,10 @@ RUN git clone --depth 1 https://github.com/NginxProxyManager/nginx-proxy-manager
 # 自动识别 NPM 官方底层使用的 Nginx 版本号，并下载对应源码
 
 RUN NGINX_VERSION=$(grep -oP 'ARG NGINX_VERSION=\K.*' npm_source/docker/nginx/Dockerfile) && \
-
     echo "Found NPM using Nginx version: $NGINX_VERSION" && \
-
     wget https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
-
     tar -xzf nginx-${NGINX_VERSION}.tar.gz && \
-
-    # 拉取 GeoIP2 模块和 MaxMind 依赖库的官方源码
-
     git clone --depth 1 https://github.com/leev/ngx_http_geoip2_module.git && \
-
     git clone --depth 1 https://github.com/maxmind/libmaxminddb.git
 
 # 编译安装依赖库
