@@ -1,0 +1,55 @@
+name: Build Offline Package
+
+# 允许手动点击按钮触发编译
+
+on:
+
+  workflow_dispatch:
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+    # 1. 检出代码（获取 Dockerfile）
+
+    - name: Checkout code
+
+      uses: actions/checkout@v4
+
+    # 2. 设置 Docker 编译环境
+
+    - name: Set up Docker Buildx
+
+      uses: docker/setup-buildx-action@v3
+
+    # 3. 在云端执行 Docker 编译，生成离线压缩包
+
+    - name: Build Docker Image and Extract Package
+
+      run: |
+
+        docker build -t npm-offline-builder .
+
+        # 创建一个临时容器，把里面的离线压缩包拷贝到 GitHub 服务器上
+
+        container_id=$(docker create npm-offline-builder)
+
+        docker cp $container_id:/npm-geoip2-offline.tar.gz ./npm-geoip2-offline.tar.gz
+
+    # 4. 将编译好的离线压缩包上传到 GitHub，方便你下载
+
+    - name: Upload Offline Package
+
+      uses: actions/upload-artifact@v4
+
+      with:
+
+        name: npm-geoip2-offline-package
+
+        path: ./npm-geoip2-offline.tar.gz
+
+        retention-days: 7 # 文件在 GitHub 上保留 7 天
