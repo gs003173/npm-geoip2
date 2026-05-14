@@ -1,18 +1,16 @@
 # 第一阶段：使用官方 Alpine 镜像作为编译车间
 FROM alpine AS builder
 
-# 1. 安装官方编译依赖库 (注意这里加了 pcre2-utils)
-# pcre2-utils 包含了支持 -P 参数的 grep，用于提取版本号
-RUN apk add --no-cache git bash curl build-base pcre2-dev zlib-dev openssl-dev libmaxminddb-dev pcre2-utils
+# 1. 安装官方编译依赖库 (去掉了不存在的 pcre2-utils)
+RUN apk add --no-cache git bash curl build-base pcre2-dev zlib-dev openssl-dev libmaxminddb-dev
 
 WORKDIR /build
 
 # 2. 拉取 Nginx Proxy Manager 官方最新源码
 RUN git clone --depth 1 https://github.com/NginxProxyManager/nginx-proxy-manager.git npm_source
 
-# 3. 【修复核心】提取 Nginx 版本号
-# 使用更稳健的 grep + sed 组合，避免 \K 语法
-RUN NGINX_VERSION=$(grep "ARG NGINX_VERSION" npm_source/docker/nginx/Dockerfile | sed -E 's/.*ARG NGINX_VERSION=([0-9.]*)/\1/') && \
+# 3. 【核心修复】使用 sed 命令提取 Nginx 版本号 (完美兼容 Alpine 系统)
+RUN NGINX_VERSION=$(sed -n 's/.*ARG NGINX_VERSION=\([0-9.]*\).*/\1/p' npm_source/docker/nginx/Dockerfile) && \
     echo "=== 正在编译 Nginx 版本: $NGINX_VERSION ===" && \
     # 4. 下载完全匹配的官方 Nginx 源码
     wget https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
@@ -21,8 +19,7 @@ RUN NGINX_VERSION=$(grep "ARG NGINX_VERSION" npm_source/docker/nginx/Dockerfile 
     git clone --depth 1 https://github.com/leev/ngx_http_geoip2_module.git && \
     git clone --depth 1 https://github.com/maxmind/libmaxminddb.git
 
-# --- 后续编译步骤 (保持不变) ---
-# 这里继续你原来的编译流程...
+# --- 后续编译步骤保持不变 ---
 
 # 第二阶段：打包最终成品
 
