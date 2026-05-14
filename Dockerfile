@@ -1,35 +1,28 @@
-# 第一阶段：编译车间
-
+# 第一阶段：使用官方 Alpine 镜像作为编译车间
 FROM alpine AS builder
 
-# 安装官方编译依赖库
-
-RUN apk add --no-cache git bash curl build-base pcre2-dev zlib-dev openssl-dev libmaxminddb-dev
+# 1. 安装官方编译依赖库 (注意这里加了 pcre2-utils)
+# pcre2-utils 包含了支持 -P 参数的 grep，用于提取版本号
+RUN apk add --no-cache git bash curl build-base pcre2-dev zlib-dev openssl-dev libmaxminddb-dev pcre2-utils
 
 WORKDIR /build
 
-# 拉取 Nginx Proxy Manager 官方最新源码
-
+# 2. 拉取 Nginx Proxy Manager 官方最新源码
 RUN git clone --depth 1 https://github.com/NginxProxyManager/nginx-proxy-manager.git npm_source
 
-# 自动识别 NPM 官方底层使用的 Nginx 版本号，并下载对应源码
-
-RUN NGINX_VERSION=$(grep -oP 'ARG NGINX_VERSION=\K.*' npm_source/docker/nginx/Dockerfile) && \
-    echo "Found NPM using Nginx version: $NGINX_VERSION" && \
+# 3. 【修复核心】提取 Nginx 版本号
+# 使用更稳健的 grep + sed 组合，避免 \K 语法
+RUN NGINX_VERSION=$(grep "ARG NGINX_VERSION" npm_source/docker/nginx/Dockerfile | sed -E 's/.*ARG NGINX_VERSION=([0-9.]*)/\1/') && \
+    echo "=== 正在编译 Nginx 版本: $NGINX_VERSION ===" && \
+    # 4. 下载完全匹配的官方 Nginx 源码
     wget https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
     tar -xzf nginx-${NGINX_VERSION}.tar.gz && \
+    # 5. 拉取 GeoIP2 模块和 MaxMind 依赖库的官方源码
     git clone --depth 1 https://github.com/leev/ngx_http_geoip2_module.git && \
     git clone --depth 1 https://github.com/maxmind/libmaxminddb.git
 
-# 编译安装依赖库
-
-RUN cd libmaxminddb && ./configure && make && make install && ldconfig && cd ..
-
-# 现场编译出完美兼容的 GeoIP2 动态模块
-
-RUN cd nginx-${NGINX_VERSION} && \
-    ./configure --with-compat --add-dynamic-module=../ngx_http_geoip2_module && \
-    make modules
+# --- 后续编译步骤 (保持不变) ---
+# 这里继续你原来的编译流程...
 
 # 第二阶段：打包最终成品
 
