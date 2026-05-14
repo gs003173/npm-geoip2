@@ -1,0 +1,39 @@
+name: Build NPM Offline Package
+
+# 触发条件：当推送到 main/master 分支，或者手动点击运行时触发
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch: # 允许在 GitHub 页面手动触发
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # 使用最新的 Ubuntu 运行环境
+    
+    steps:
+      # 1. 拉取你的仓库代码到运行环境中
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. 使用 Docker 编译镜像，并将离线包从容器中提取出来
+      - name: Build Docker image and extract package
+        run: |
+          # 根据当前目录下的 Dockerfile 构建镜像
+          docker build -t npm-offline-builder .
+          
+          # 创建一个临时容器
+          docker create --name temp-container npm-offline-builder
+          
+          # 将容器根目录下的离线压缩包复制到当前工作目录
+          docker cp temp-container:/npm-geoip2-offline.tar.gz .
+          
+          # 删除临时容器，保持环境整洁
+          docker rm temp-container
+
+      # 3. 将提取出来的离线包上传到 GitHub Artifacts 供你下载
+      - name: Upload Offline Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-geoip2-offline-package
+          path: ./npm-geoip2-offline.tar.gz
+          retention-days: 7 # 文件保留 7 天
