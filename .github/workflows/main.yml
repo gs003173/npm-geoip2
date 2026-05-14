@@ -1,57 +1,55 @@
-name: Build and Push NPM with GeoIP2
+name: Build Offline Package
 
-# 当你向 main 分支推送代码，或者手动触发时，自动运行
+# 允许手动点击按钮触发编译
 
 on:
 
-  push:
-
-    branches: [ "main" ]
-
-  workflow_dispatch: # 允许手动点击按钮运行
+  workflow_dispatch:
 
 jobs:
 
   build:
 
-    runs-on: ubuntu-latest # 使用 GitHub 提供的最新 Ubuntu 服务器
+    runs-on: ubuntu-latest
 
     steps:
 
-    # 1. 检出你仓库里的代码（也就是刚刚上传的 Dockerfile）
+    # 1. 检出代码（获取 Dockerfile）
 
     - name: Checkout code
 
       uses: actions/checkout@v4
 
-    # 2. 设置 Docker 构建环境
+    # 2. 设置 Docker 编译环境
 
     - name: Set up Docker Buildx
 
       uses: docker/setup-buildx-action@v3
 
-    # 3. 登录到你的 Docker Hub 账号（为了把编译好的镜像推送到你的账号下）
+    # 3. 在云端执行 Docker 编译，生成离线压缩包
 
-    - name: Login to Docker Hub
+    - name: Build Docker Image and Extract Package
 
-      uses: docker/login-action@v3
+      run: |
+
+        docker build -t npm-offline-builder .
+
+        # 创建一个临时容器，把里面的离线压缩包拷贝到 GitHub 服务器上
+
+        container_id=$(docker create npm-offline-builder)
+
+        docker cp $container_id:/npm-geoip2-offline.tar.gz ./npm-geoip2-offline.tar.gz
+
+    # 4. 将编译好的离线压缩包上传到 GitHub，方便你下载
+
+    - name: Upload Offline Package
+
+      uses: actions/upload-artifact@v4
 
       with:
 
-        username: ${{ secrets.DOCKER_USERNAME }}
+        name: npm-geoip2-offline-package
 
-        password: ${{ secrets.DOCKER_PASSWORD }}
+        path: ./npm-geoip2-offline.tar.gz
 
-    # 4. 开始编译并自动推送到 Docker Hub
-
-    - name: Build and push
-
-      uses: docker/build-push-action@v5
-
-      with:
-
-        context: . # 使用当前目录（包含 Dockerfile）
-
-        push: true # 编译成功后自动推送
-
-        tags: ${{ secrets.DOCKER_USERNAME }}/my-npm-geoip2:latest # 你的专属镜像名
+        retention-days: 7 # 文件在 GitHub 上保留 7 天
